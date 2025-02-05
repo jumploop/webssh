@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # 当推送以 "v" 开头的标签时触发 (例如 v1.2.3)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 允许创建 release
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取所有提交历史，用于生成 release notes
+
+      - name: Generate automatic release notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { Octokit } = require("@octokit/rest");
+            const octokit = new Octokit({
+              auth: process.env.GITHUB_TOKEN
+            });
+
+            const tag = "${{ github.ref_name }}"; // 获取触发 workflow 的 tag 名称
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            let previousTag;
+            try {
+              const previousTagRef = await octokit.git.getRef({
+                owner,
+                repo,
+                ref: `tags/${tag}^`, // Dereference the tag to get the commit
+              });
+
+              const previousTagCommit = previousTagRef.data.object.sha;
+
+              const previousTagData = await octokit.git.getCommit({
+                owner,
+                repo,
+                commit_sha: previousTagCommit
+              });
+
+              previousTag = previousTagData.data.tree.sha
+            } catch (error) {
+              // If the tag doesn't point to a commit or doesn't have a previous tag
+              previousTag = undefined; // Set to undefined to indicate no previous tag
+              console.log("Could not find a previous tag, creating a full release notes.");
+            }
+            // Generate release notes based on commit history
+            let releaseNotes = '';
+            if (previousTag) {
+              const comparison = await octokit.repos.compareCommits({
+                owner,
+                repo,
+                base: previousTag,
+                head: tag,
+              });
+
+              if (comparison && comparison.data && comparison.data.commits) {
+                releaseNotes = comparison.data.commits.map(commit => `- ${commit.commit.message} (${commit.author.login})`).join('\n');
+              } else {
+                releaseNotes = 'No changes found between tags.';
+              }
+            } else {
+              // Handle the case where the tag is the first one (no previous tag)
+              const commits = await octokit.repos.listCommits({
+                owner,
+                repo,
+                sha: tag, // Fetch commits on the tag
+              });
+
+              if (commits && commits.data) {
+                releaseNotes = commits.data.map(commit => `- ${commit.commit.message} (${commit.author.login})`).join('\n');
+              } else {
+                releaseNotes = 'No commits found for this tag.';
+              }
+            }
+            // Add a default message if release notes are empty
+            if (!releaseNotes) {
+              releaseNotes = 'Initial release.';
+            }
+            return releaseNotes;
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }} # 使用触发 workflow 的 tag 名称
+          release_name: Release ${{ github.ref_name }} # Release 名称
+          body: ${{ steps.release_notes.outputs.result }} # 使用自动生成的 Release Notes
+          draft: false # 是否发布为草稿
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') }} # 如果 tag 包含 -rc 或 -beta，则标记为预发布版本
