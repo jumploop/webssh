@@ -15,4 +15,4 @@ RUN \
 
 EXPOSE 8888/tcp
 USER webssh
-CMD ["python", "run.py", "--delay=10", "--encoding=utf-8", "--fbidhttp=False", "--maxconn=20", "--origin=*", "--policy=warning", "--redirect=False", "--timeout=10", "--debug", "--xsrf=False", "--xheaders", "--wpintvl=1"]
+CMD ["python", "run.py", "--delay=10", "--encoding=utf-8", "--fbidhttp", "--maxconn=20", "--origin=*", "--redirect", "--timeout=10", "--debug", "--xsrf", "--xheaders", "--wpintvl=1"]
