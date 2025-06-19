@@ -1,6 +1,9 @@
 version: '3'
 services:
   web:
+    image: jumploop/webssh
+    container_name: webssh
     build: .
+    restart: unless-stopped
     ports:
-    - "8888:8888"
+      - "8888:8888"
