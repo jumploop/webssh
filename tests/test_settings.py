@@ -22,7 +22,7 @@ class TestSettings(unittest.TestCase):
 
     def test_print_version(self):
         sys_stdout = sys.stdout
-        sys.stdout = io.StringIO() if UnicodeType == str else io.BytesIO()
+        sys.stdout = io.StringIO() if isinstance(UnicodeType, str) else io.BytesIO()
 
         self.assertEqual(print_version(False), None)
         self.assertEqual(sys.stdout.getvalue(), '')
