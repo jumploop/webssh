@@ -33,7 +33,7 @@ services:
 ```shell
 git clone https://github.com/jumploop/webssh
 cd webssh
-pip install -r requirements.txt && python run.py --delay=10 --encoding=utf-8 --fbidhttp=False --maxconn=20 --origin='*' --policy=warning --redirect=False --timeout=10 --port=8888 --debug --xsrf=False --xheaders=False --wpintvl=1
+pip install -r requirements.txt && python run.py --delay=10 --encoding=utf-8 --fbidhttp=False --maxconn=20 --origin='*' --policy=warning --redirect=False --timeout=10 --port=8888 --debug --xsrf=False --xheaders=False --wpintvl=30
 ```
 
 ## 💡 工作原理
