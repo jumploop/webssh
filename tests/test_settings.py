@@ -14,7 +14,6 @@ from webssh.settings import (
     get_ssl_context, get_trusted_downstream, get_origin_setting, print_version,
     check_encoding_setting
 )
-from webssh.utils import UnicodeType
 from webssh._version import __version__
 
 
@@ -22,7 +21,7 @@ class TestSettings(unittest.TestCase):
 
     def test_print_version(self):
         sys_stdout = sys.stdout
-        sys.stdout = io.StringIO() if isinstance(UnicodeType, str) else io.BytesIO()
+        sys.stdout = io.StringIO()
 
         self.assertEqual(print_version(False), None)
         self.assertEqual(sys.stdout.getvalue(), '')

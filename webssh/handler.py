@@ -143,7 +143,11 @@ class PrivateKey(object):
         logging.debug('Reset offset to {}.'.format(offset))
 
         logging.debug('Try parsing it as {} type key'.format(name))
-        pkeycls = getattr(paramiko, name+'Key')
+        pkeycls = getattr(paramiko, name+'Key', None)
+        if pkeycls is None:
+            logging.debug('Unsupported key type: {}'.format(name))
+            return None
+
         pkey = None
 
         try:
@@ -178,8 +182,7 @@ class PrivateKey(object):
         logging.error(str(self.last_exception))
         msg = 'Invalid key'
         if self.password:
-            msg += ' or wrong passphrase "{}" for decrypting it.'.format(
-                    self.password)
+            msg += ' or wrong passphrase provided.'
         raise InvalidValueError(msg)
 
 
@@ -406,7 +409,7 @@ class IndexHandler(MixinHandler, tornado.web.RequestHandler):
 
         self.ssh_client.totp = totp
         args = (hostname, port, username, password, pkey)
-        logging.debug(args)
+        logging.debug(f"Connecting to {hostname}:{port} as {username}")
 
         return args
 

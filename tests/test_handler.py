@@ -121,7 +121,7 @@ class TestMixinHandler(unittest.TestCase):
         self.assertEqual(mhandler.get_real_client_addr(),
                          (x_forwarded_for, fake_port))
 
-        mhandler.request.headers.add('X-Forwarded-Port', fake_port + 1)
+        mhandler.request.headers.add('X-Forwarded-Port', str(fake_port + 1))
         self.assertEqual(mhandler.get_real_client_addr(),
                          (x_forwarded_for, fake_port))
 
@@ -135,7 +135,7 @@ class TestMixinHandler(unittest.TestCase):
         self.assertEqual(mhandler.get_real_client_addr(),
                          (x_real_ip, fake_port))
 
-        mhandler.request.headers.add('X-Real-Port', fake_port + 1)
+        mhandler.request.headers.add('X-Real-Port', str(fake_port + 1))
         self.assertEqual(mhandler.get_real_client_addr(),
                          (x_real_ip, fake_port))
 
@@ -205,7 +205,8 @@ class TestPrivateKey(unittest.TestCase):
 
     def test_get_pkey_obj_with_plain_new_dsa_key(self):
         pk = self.get_pk_obj('test_new_dsa.key')
-        self.assertIsInstance(pk.get_pkey_obj(), paramiko.DSSKey)
+        with self.assertRaises(InvalidValueError):
+            pk.get_pkey_obj()
 
     def test_parse_name(self):
         key = u'-----BEGIN PRIVATE KEY-----'
@@ -336,5 +337,5 @@ class TestIndexHandler(unittest.TestCase):
         ssh.exec_command.return_value = (stdin, stdout, stderr)
 
         encoding = IndexHandler.get_default_encoding(handler, ssh)
-        self.assertEquals("utf-8", encoding)
+        self.assertEqual("utf-8", encoding)
 

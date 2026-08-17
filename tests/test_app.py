@@ -429,13 +429,23 @@ class TestAppBasic(TestAppBase):
         headers = {
             'Content-Type': content_type, 'content-length': str(len(body))
         }
-        response = self.sync_post('/', body, headers=headers)
+        try:
+            response = self.sync_post('/', body, headers=headers)
+        except (ConnectionResetError, OSError):
+            # tornado aborts the connection once the body limit is
+            # exceeded; on Windows this surfaces as a reset error
+            return
         self.assertIn(response.code, [400, 599])
 
     def test_app_post_form_with_large_body_size_by_urlencoded_form(self):
         privatekey = 'h' * (2 * max_body_size)
         body = self.body + '&privatekey=' + privatekey
-        response = self.sync_post('/', body)
+        try:
+            response = self.sync_post('/', body)
+        except (ConnectionResetError, OSError):
+            # tornado aborts the connection once the body limit is
+            # exceeded; on Windows this surfaces as a reset error
+            return
         self.assertIn(response.code, [400, 599])
 
     @tornado.testing.gen_test
@@ -768,6 +778,14 @@ class TestAppWithCrossOriginOperation(OtherTestBase):
 
 
 class TestAppWithBadEncoding(OtherTestBase):
+    def get_app(self):
+        self.saved_encoding = options.encoding
+        options.encoding = ''
+        return super(TestAppWithBadEncoding, self).get_app()
+
+    def tearDown(self):
+        options.encoding = self.saved_encoding
+        super(TestAppWithBadEncoding, self).tearDown()
 
     encodings = [u'\u7f16\u7801']
 
@@ -780,6 +798,14 @@ class TestAppWithBadEncoding(OtherTestBase):
 
 
 class TestAppWithUnknownEncoding(OtherTestBase):
+    def get_app(self):
+        self.saved_encoding = options.encoding
+        options.encoding = ''
+        return super(TestAppWithUnknownEncoding, self).get_app()
+
+    def tearDown(self):
+        options.encoding = self.saved_encoding
+        super(TestAppWithUnknownEncoding, self).tearDown()
 
     encodings = [u'\u7f16\u7801', u'UnknownEncoding']
 

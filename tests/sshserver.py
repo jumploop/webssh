@@ -136,6 +136,67 @@ class Server(paramiko.ServerInterface):
         return True
 
 
+def handle_connection(client, encodings):
+    t = paramiko.Transport(client)
+    t.load_server_moduli()
+    t.add_server_key(host_key)
+    server = Server(encodings)
+    try:
+        t.start_server(server=server)
+    except Exception as e:
+        print(e)
+        t.close()
+        client.close()
+        return
+
+    # wait for auth
+    chan = t.accept(2)
+    if chan is None:
+        print('*** No channel.')
+        t.close()
+        client.close()
+        return
+
+    username = t.get_username()
+    print('{} Authenticated!'.format(username))
+
+    server.shell_event.wait(timeout=event_timeout)
+    if not server.shell_event.is_set():
+        print('*** Client never asked for a shell.')
+        t.close()
+        client.close()
+        return
+
+    # encoding detection is optional: the client may skip it when a
+    # default encoding is configured. Wait briefly, then default.
+    server.exec_event.wait(timeout=0.2)
+    encoding = getattr(server, 'encoding', '') or 'utf-8'
+    print(encoding)
+    try:
+        banner_encoded = banner.encode(encoding.strip())
+    except (ValueError, LookupError):
+        # keep the session alive even when the banner cannot be encoded,
+        # so an in-flight encoding detection is not interrupted
+        banner_encoded = None
+
+    if banner_encoded is not None:
+        chan.send(banner_encoded)
+    if username == 'bar':
+        msg = chan.recv(1024)
+        chan.send(msg)
+    elif username == 'foo':
+        lst = []
+        while True:
+            msg = chan.recv(32 * 1024)
+            lst.append(msg)
+            if msg.endswith(b'\r\n\r\n'):
+                break
+        data = b''.join(lst)
+        while data:
+            s = chan.send(data)
+            data = data[s:]
+
+
 def run_ssh_server(port=2200, running=True, encodings=[]):
     # now connect
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -146,68 +207,10 @@ def run_ssh_server(port=2200, running=True, encodings=[]):
     while running:
         client, addr = sock.accept()
         print('Got a connection!')
+        worker = threading.Thread(
+            target=handle_connection, args=(client, encodings)
+        )
+        worker.setDaemon(True)
+        worker.start()
 
-        t = paramiko.Transport(client)
-        t.load_server_moduli()
-        t.add_server_key(host_key)
-        server = Server(encodings)
-        try:
-            t.start_server(server=server)
-        except Exception as e:
-            print(e)
-            continue
-
-        # wait for auth
-        chan = t.accept(2)
-        if chan is None:
-            print('*** No channel.')
-            continue
-
-        username = t.get_username()
-        print('{} Authenticated!'.format(username))
-
-        server.shell_event.wait(timeout=event_timeout)
-        if not server.shell_event.is_set():
-            print('*** Client never asked for a shell.')
-            continue
-
-        server.exec_event.wait(timeout=event_timeout)
-        if not server.exec_event.is_set():
-            print('*** Client never asked for a command.')
-            continue
-
-        # chan.send('\r\n\r\nWelcome!\r\n\r\n')
-        print(server.encoding)
-        try:
-            banner_encoded = banner.encode(server.encoding)
-        except (ValueError, LookupError):
-            continue
-
-        chan.send(banner_encoded)
-        if username == 'bar':
-            msg = chan.recv(1024)
-            chan.send(msg)
-        elif username == 'foo':
-            lst = []
-            while True:
-                msg = chan.recv(32 * 1024)
-                lst.append(msg)
-                if msg.endswith(b'\r\n\r\n'):
-                    break
-            data = b''.join(lst)
-            while data:
-                s = chan.send(data)
-                data = data[s:]
-        else:
-            chan.close()
-            t.close()
-            client.close()
-
-    try:
-        sock.close()
-    except Exception:
-        pass
-
-
-if __name__ == '__main__':
-    run_ssh_server()
+    sock.close()

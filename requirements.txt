@@ -1,3 +1,2 @@
-paramiko==3.3.2
-tornado==6.4.2
-webssh
+paramiko>=5.0.0
+tornado>=6.5.8

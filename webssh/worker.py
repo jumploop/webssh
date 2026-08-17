@@ -23,8 +23,6 @@ def clear_worker(worker, clients):
 
     if not workers:
         clients.pop(ip)
-        if not clients:
-            clients.clear()
 
 
 def recycle_worker(worker):
