@@ -9,26 +9,26 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # 赋予写入 contents 的权限，允许创建 release
+      contents: write  # 允许创建/更新 release
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4 # 使用 checkout action 检出代码
-        with:
-          fetch-depth: 0 # 获取所有 commit 历史，方便后续使用
-
-      - name: Create Release
-        uses: actions/create-release@v1  # 使用 create-release action 创建 release
+      # actions/create-release@v1 已被 GitHub 废弃，改用官方 gh CLI。
+      # --generate-notes 仅 gh release create 支持，因此统一先用
+      # Release Notes API 生成变更日志，再用于 create/edit（幂等，支持工作流重跑）。
+      - name: Create or Update Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # GitHub Token
-        with:
-          tag_name: ${{ github.ref_name }}  #  Release tag 名称
-          release_name: Release ${{ github.ref_name }} # Release 名称
-          body: | # Release 内容，这里可以自定义
-            Release ${{ github.ref_name }} 🎉
-            ---
-            See what's new in this release!
-            - 改进了用户体验
-            - 修复了已知 Bug
-          draft: false # 设置为 false，直接发布 release
-          prerelease: false  # 设置为 false，不是预发布版本
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="$TAG" --jq '.body' > "$RUNNER_TEMP/release-notes.md"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # release 已存在（例如工作流重跑），仅更新其内容
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "Release $TAG" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "Release $TAG" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi
