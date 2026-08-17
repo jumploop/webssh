@@ -11,6 +11,6 @@ jobs:
   ruff:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: pip install --user ruff
-      - run: ruff check --output-format github --ignore F401 --target-version py38 .
+      - uses: actions/checkout@v5
+      - run: python -m pip install ruff==0.16.3
+      - run: python -m ruff check --output-format github .
